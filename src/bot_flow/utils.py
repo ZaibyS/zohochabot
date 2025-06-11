@@ -1,45 +1,53 @@
+# src/bot_flow/utils.py
+
 import uuid
+from langdetect import detect
 from email_validator import validate_email, EmailNotValidError
 import phonenumbers
 from phonenumbers.phonenumberutil import NumberParseException
+from PyPDF2 import PdfReader
+import re
 
 from logger.custom_logger import setup_logger
-from config.config import DB_PATH
-
 log = setup_logger()
 
+def detect_language(text):
+    try:
+        return detect(text)
+    except:
+        return "en"
+
+def extract_key_terms(text):
+    # Simple keyword extractor
+    sectors = re.findall(r"(technology|healthcare|finance|energy)", text.lower())
+    companies = re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", text)
+    countries = re.findall(r"\b(?:United\s+States|Canada|Germany|France|Japan)\b", text)
+    return {
+        "sectors": list(set(sectors)),
+        "companies": list(set(companies)),
+        "countries": list(set(countries))
+    }
+
 def is_valid_email(email: str) -> bool:
-    log.info(f"Validating email: {email}")
     try:
         validate_email(email)
-        log.info(f"Email {email} is valid.")
         return True
     except EmailNotValidError:
-        log.error(f"Email {email} is not valid.")
         return False
-    
+
 def is_valid_phone_number(phone: str) -> bool:
-    log.info(f"Validating phone number: {phone}")
     try:
-        parsed_number = phonenumbers.parse(phone, None)
-        phonenumbers.is_valid_number(parsed_number)
-        log.info(f"Phone number {phone} is valid.")
-        return True
+        parsed = phonenumbers.parse(phone, None)
+        return phonenumbers.is_valid_number(parsed)
     except NumberParseException:
-        log.error(f"Phone number {phone} is not valid.")
         return False
 
 def generate_id(email: str, phone: str) -> str:
-    log.info(f"Generating ID for email: {email} and phone: {phone}")
     if is_valid_email(email) and is_valid_phone_number(phone):
         try:
             name = f"{email}-{phone}"
-            id = str(uuid.uuid5(uuid.NAMESPACE_DNS, name))
-            log.info(f"Generated ID: {id}")
-            return id
+            return str(uuid.uuid5(uuid.NAMESPACE_DNS, name))
         except Exception as e:
-            log.error(f"Error generating ID: {e}")
+            print(e)
             return None
-    else:
-        log.error(f"Invalid email or phone number provided.")
-        return None
+    return None
